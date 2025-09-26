@@ -1,0 +1,49 @@
+name: Build and Push to Amazon ECR
+
+on:
+  push:
+    branches: 
+      - main    # Trigger the action only on pushes to the main branch
+
+permissions:
+  id-token: write   # Required for OIDC authentication
+  contents: read    # GitHub Action needs to read the repository contents
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials (OIDC)
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        role-to-assume: arn:aws:iam::<AWS_ACCOUNT_ID>:role/GitHubActionsECRPushRole  # IAM Role ARN to assume
+        aws-region: ${{ secrets.AWS_REGION }}  # Secure region via GitHub Secrets
+
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build Docker image
+      env:
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}  # The name of your ECR repository
+        IMAGE_TAG: latest  # Default tag for the image
+        AWS_REGION: ${{ secrets.AWS_REGION }}  # Region where your ECR is located
+        ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}  # Your AWS account ID (secrets)
+      run: |
+        echo "Building the Docker image..."
+        docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+        
+        # Create image URI (ECR URI) using account ID and repository name
+        IMAGE_URI=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}
+        
+        # Tag the Docker image with the repository URI
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG $IMAGE_URI:$IMAGE_TAG
+        
+        # Push the Docker image to ECR
+        docker push $IMAGE_URI:$IMAGE_TAG
+
+    - name: Output image URI
+      run: echo "Image pushed: ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:latest"
