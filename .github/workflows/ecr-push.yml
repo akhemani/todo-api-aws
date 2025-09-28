@@ -1,32 +1,18 @@
-name: Build & Push to ECR
-
-on:
-  push:
-    branches: [ "main" ]
-
 jobs:
   build-push:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set execute permission for mvnw
-        run: chmod +x mvnw
 
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
-
-      - name: Build JAR (skip tests for speed)
-        run: ./mvnw -q -DskipTests package
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
